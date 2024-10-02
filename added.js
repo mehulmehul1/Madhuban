@@ -1,3 +1,111 @@
+let crossings = [];
+
+class KnotMaker {
+  constructor(crossings = 3, size = 150, resolution = 0.01) {
+    this.crossings = crossings;
+    this.size = size;
+    this.resolution = resolution;
+    this.knotPoints = [];
+  }
+
+  generateKnotPoints() {
+    angleMode(RADIANS);
+    let x = (t) => (sin(t) + 2 * sin((this.crossings - 1) * t)) * this.size;
+    let y = (t) => (cos(t) - 2 * cos((this.crossings - 1) * t)) * this.size;
+    let z = (t) => -sin(this.crossings * t);
+
+    this.knotPoints = [];
+    for (let t = 0; t <= TWO_PI; t += this.resolution) {
+      this.knotPoints.push({
+        x: x(t),
+        y: y(t),
+        z: z(t),
+      });
+    }
+  }
+
+  getKnotPoints() {
+    return this.knotPoints;
+  }
+
+  setCrossings(crossings) {
+    this.crossings = crossings;
+    this.generateKnotPoints();
+  }
+}
+
+function findCrossings(pathPoints) {
+  crossings = [];
+  let numPoints = pathPoints.length;
+
+  for (let i = 0; i < numPoints - 1; i++) {
+    let p1 = pathPoints[i];
+    let p2 = pathPoints[i + 1];
+
+    for (let j = i + 2; j < numPoints - 1; j++) {
+      // Avoid adjacent segments
+      if (Math.abs(i - j) <= 1) continue;
+
+      let p3 = pathPoints[j];
+      let p4 = pathPoints[j + 1];
+
+      if (segmentsIntersect(p1, p2, p3, p4)) {
+        // Determine which segment is over based on z-values at the intersection point
+        // For simplicity, use the average z-value of each segment
+        let z1 = (p1.z + p2.z) / 2;
+        let z2 = (p3.z + p4.z) / 2;
+
+        let overSegment, underSegment;
+        if (z1 > z2) {
+          overSegment = { start: p1, end: p2 };
+          underSegment = { start: p3, end: p4 };
+        } else {
+          overSegment = { start: p3, end: p4 };
+          underSegment = { start: p1, end: p2 };
+        }
+
+        crossings.push({
+          point1Index: i,
+          point2Index: j,
+          overSegment,
+          underSegment,
+          intersectionPoint: getIntersectionPoint(p1, p2, p3, p4),
+        });
+      }
+    }
+  }
+}
+
+function segmentsIntersect(p1, p2, p3, p4) {
+  let denominator =
+    (p4.y - p3.y) * (p2.x - p1.x) - (p4.x - p3.x) * (p2.y - p1.y);
+  if (denominator === 0) return false; // Lines are parallel
+
+  let ua =
+    ((p4.x - p3.x) * (p1.y - p3.y) - (p4.y - p3.y) * (p1.x - p3.x)) /
+    denominator;
+  let ub =
+    ((p2.x - p1.x) * (p1.y - p3.y) - (p2.y - p1.y) * (p1.x - p3.x)) /
+    denominator;
+
+  return ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1;
+}
+
+function getIntersectionPoint(p1, p2, p3, p4) {
+  let denominator =
+    (p4.y - p3.y) * (p2.x - p1.x) - (p4.x - p3.x) * (p2.y - p1.y);
+  if (denominator === 0) return null; // Lines are parallel
+
+  let ua =
+    ((p4.x - p3.x) * (p1.y - p3.y) - (p4.y - p3.y) * (p1.x - p3.x)) /
+    denominator;
+
+  let x = p1.x + ua * (p2.x - p1.x);
+  let y = p1.y + ua * (p2.y - p1.y);
+
+  return { x, y };
+}
+
 function generateWeedLeaf() {
   // noFill();
   let points = [];
@@ -83,4 +191,19 @@ function generateCirclePoints(centerX, centerY, radius, numPoints) {
     points.push({ x: x, y: y });
   }
   return points;
+}
+
+function segmentsIntersect(p1, p2, p3, p4) {
+  let denominator =
+    (p4.y - p3.y) * (p2.x - p1.x) - (p4.x - p3.x) * (p2.y - p1.y);
+  if (denominator === 0) return false; // Lines are parallel
+
+  let ua =
+    ((p4.x - p3.x) * (p1.y - p3.y) - (p4.y - p3.y) * (p1.x - p3.x)) /
+    denominator;
+  let ub =
+    ((p2.x - p1.x) * (p1.y - p3.y) - (p2.y - p1.y) * (p1.x - p3.x)) /
+    denominator;
+
+  return ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1;
 }

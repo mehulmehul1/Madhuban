@@ -37,7 +37,11 @@ function windowResized() {
 function initializeSketch() {
   setup();
 }
+function saveImage() {
+  saveCanvas("myImage", "png");
+}
 
+let knotMaker;
 let border1;
 let border2;
 
@@ -83,38 +87,45 @@ function setup() {
   brush.set("rotring", "#002185", 1);
 
   // brush.field("truncated");
+  // Initialize KnotMaker
+  knotMaker = new KnotMaker(5, 120, 0.01);
+  angleMode(RADIANS);
+  knotMaker.generateKnotPoints();
+  angleMode(DEGREES);
 
-  // border2 = new Border(straightLine);
+  // Get the knot points
+  let knotPoints = knotMaker.getKnotPoints();
+  findCrossings(knotPoints);
+
+  border2 = new Border(knotPoints);
   border1 = new Border(pathPoints);
   // border1 = new Border(circlePoints);
 
   // border1 = new Border(50, 50, 1500, 250);
+  border2.setBorderStyle(color(0), 2, 80);
 
-  border1.setBeadStyle("square", 20, 10);
-  // border1.setBeadStyle("triangle");
-  // border1.setShapeStyle(random(borderTypes), 20);
+  border2.setBeadStyle("triangle", 40, 10);
+  // border2.setBeadStyle("circle");
 
-  border1.setBorderStyle(color(0), 2, 60);
+  border1.setBeadStyle("square", 30, 10);
+  // border2.setBeadStyle("triangle");
 
-  // Generate the weed leaf points
+  console.log(knotPoints);
 
-  // Convert pathPoints to the required format
-
-  // generateWeedLeaf();
-  // let pathPoi = generateWeedLeaf();
-  // let pathPointsArray = pathPoi.map((pt) => ({ x: pt.x, y: pt.y }));
-
-  // console.log(generateWeedLeaf());
-
-  // border2 = new Border(pathPointsArray);
-  // border2.setShapeStyle("circle", 5);
-  // border2.setBorderStyle(color(0), 2, 10);
-
-  // border1.draw();
+  // Listen for a key press event
+  document.addEventListener("keydown", function (event) {
+    // Check if the pressed key is the 'e' key (you can change this to any key you want)
+    if (event.key === "s") {
+      // Call the function to export the canvas as a PNG image
+      saveImage();
+      // exportCanvasAsPNG(canvas);
+    }
+  });
+  noLoop();
 }
 
 function draw() {
-  translate(-width / 2, -height / 2);
+  // translate(-width / 2, -height / 2);
   // brush.refreshField(frameCount / 10);
   stroke(0);
   // noFill();
@@ -124,8 +135,8 @@ function draw() {
   //   border.draw();
   // }
 
-  border1.draw();
-  // border2.draw(s);
+  // border1.draw();
+  border2.draw();
 
   pop();
 }
@@ -136,6 +147,7 @@ class Border {
     // console.log("Is pathPoints an array?", Array.isArray(pathPoints));
     // this.path = pathPoints.map((pt) => createVector(pt.x, pt.y));
     this.path = [];
+
     if (Array.isArray(pathPoints)) {
       pathPoints.forEach((pt) => {
         this.path.push(createVector(pt.x, pt.y));
@@ -171,11 +183,16 @@ class Border {
     this.borderWidth = width;
   }
 
-  setBeadStyle(type, size, spacing) {
+  setBeadStyle(type) {
     this.beadType = type;
-    this.beadSize = size;
-    this.spacing = spacing;
+    // this.beadSize = size;
+    // this.spacing = spacing;
   }
+  // setBeadStyle(type, size, spacing) {
+  //   this.beadType = type;
+  //   this.beadSize = size;
+  //   this.spacing = spacing;
+  // }
 
   // setHatchPreset(preset) {
   //   this.hatchPreset = preset;
@@ -196,17 +213,95 @@ class Border {
   // }
 
   draw() {
+    // background(6);
     brush.stroke(2);
     this.calculateBeadPositions();
     this.calculateOffsetPaths();
     this.drawBorders();
+    // this.drawBordersWithCrossings();
 
-    brush.hatch(3, 90, { rand: 0.1, continuous: false, gradient: 0.3 });
+    // brush.hatch(3, 90, { rand: 0.1, continuous: false, gradient: 0.3 });
+    brush.hatch(10, 90, { rand: 0, continuous: false, gradient: 0.3 });
+
     this.drawBeads();
 
     // this.drawShapes();
-    noLoop(); // Remove if you want continuous drawing
+    // noLoop(); // Remove if you want continuous drawing
   }
+
+  drawBordersWithCrossings() {
+    noFill();
+    brush.stroke(this.borderColor);
+    brush.strokeWeight(this.borderWeight);
+    brush.noHatch();
+
+    // Draw the path with consideration of crossings
+    for (let i = 0; i < this.path.length - 1; i++) {
+      let p1 = this.path[i];
+      let p2 = this.path[i + 1];
+
+      // Check if this segment is under at any crossing
+      let isUnder = false;
+      let crossing = null;
+
+      for (let c of crossings) {
+        if (
+          (c.underSegment.start === p1 && c.underSegment.end === p2) ||
+          (c.underSegment.start === p2 && c.underSegment.end === p1)
+        ) {
+          isUnder = true;
+          crossing = c;
+          break;
+        }
+      }
+
+      if (isUnder && crossing) {
+        // Draw segment with gap at the crossing
+        this.drawSegmentWithGap(p1, p2, crossing.intersectionPoint);
+      } else {
+        // Draw segment normally
+        brush.line(p1.x, p1.y, p2.x, p2.y);
+      }
+    }
+  }
+
+  drawSegmentWithGap(p1, p2, intersectionPoint) {
+    let gapSize = this.beadSize * 0.5; // Adjust gap size as needed
+
+    // Calculate distances
+    let totalDist = dist(p1.x, p1.y, p2.x, p2.y);
+    let distToIntersection = dist(
+      p1.x,
+      p1.y,
+      intersectionPoint.x,
+      intersectionPoint.y
+    );
+
+    // Calculate points for the gap
+    let gapStart = distToIntersection - gapSize / 2;
+    let gapEnd = distToIntersection + gapSize / 2;
+
+    // Ensure gapStart and gapEnd are within the segment
+    gapStart = constrain(gapStart, 0, totalDist);
+    gapEnd = constrain(gapEnd, 0, totalDist);
+
+    // Draw the segment with the gap
+    if (gapStart > 0) {
+      let startX = lerp(p1.x, p2.x, 0);
+      let startY = lerp(p1.y, p2.y, 0);
+      let endX = lerp(p1.x, p2.x, gapStart / totalDist);
+      let endY = lerp(p1.y, p2.y, gapStart / totalDist);
+      line(startX, startY, endX, endY);
+    }
+    if (gapEnd < totalDist) {
+      let startX = lerp(p1.x, p2.x, gapEnd / totalDist);
+      let startY = lerp(p1.y, p2.y, gapEnd / totalDist);
+      let endX = lerp(p1.x, p2.x, 1);
+      let endY = lerp(p1.y, p2.y, 1);
+      line(startX, startY, endX, endY);
+    }
+  }
+
   calculateBeadPositions() {
     // Calculate total path length and segment lengths
     let segmentLengths = [];
@@ -491,6 +586,7 @@ class Border {
   isClosedPath() {
     // Determine if the path is closed
     return p5.Vector.dist(this.path[0], this.path[this.path.length - 1]) < 1e-6;
+    // return true;
   }
 
   rotate(angle) {
