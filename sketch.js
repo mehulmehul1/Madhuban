@@ -1,6 +1,16 @@
 //////////////////////////////////////////////////
 // Object for creation and real-time resize of canvas
 // Good function to create canvas and resize functions. I use this in all examples.
+// import * as clipperLib from "js-angusj-clipper";
+// import { Clipper2ZFactoryFunction, MainModule } from 'libraries/clipper2-wasm/dist/clipper2z';
+// import * as _Clipper2ZFactory from '../libraries/Clipper2-WASM-main/clipper2-wasm/dist/clipper2z';
+
+
+
+// import * as clipperLib from "/node_modules/js-angusj-clipper/web/index.js";
+
+
+
 const C = {
   loaded: false,
   prop() {
@@ -41,17 +51,35 @@ function saveImage() {
   saveCanvas("myImage", "png");
 }
 
+// let clipper;
+
+
+// async function initClipper() {
+//   const clipper = await clipperLib.loadNativeClipperLibInstanceAsync(
+//     clipperLib.NativeClipperLibRequestedFormat.WasmWithAsmJsFallback
+//   );
+//   return clipper;
+// }
+
+// let clipper;
+
+
 let knotMaker;
 let border1;
 let border2;
+let border3;
+let strborder;
+
+let strings = [];
+let borders = [];
 
 const gridSize = 5;
 const cellSize = 200;
-const borderTypes = ["triangle", "circle", "diamond", "square", "noshape"];
+const borderTypes = ["triangle", "circle", "square"];
 const colors = ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF"];
 
 let straightLine = [
-  { x: 50, y: 400 },
+  { x: 50, y: 50 },
   { x: 1500, y: 400 },
 ];
 // let pathPoints = [
@@ -88,7 +116,7 @@ function setup() {
 
   // brush.field("truncated");
   // Initialize KnotMaker
-  knotMaker = new KnotMaker(5, 120, 0.01);
+  knotMaker = new KnotMaker(int(random(2, 7)), 120, 0.01);
   angleMode(RADIANS);
   knotMaker.generateKnotPoints();
   angleMode(DEGREES);
@@ -96,21 +124,51 @@ function setup() {
   // Get the knot points
   let knotPoints = knotMaker.getKnotPoints();
   findCrossings(knotPoints);
+  
 
-  border2 = new Border(knotPoints);
+  // for (let i = 0; i < 10; i++) {
+  //   let x = random(100,windowWidth-100);
+  //   let y = random(100,windowHeight-100);
+  //   strings.push(new StringMaker(x, y));
+  // }
+  
+  let stringMaker = new StringMaker(100, 100);
+  let pathPoints = stringMaker.bezierCurveStringMaker(12);
+
+  strborder = new Border(pathPoints);
+
+  // border2 = new Border(knotPoints);
   border1 = new Border(pathPoints);
-  // border1 = new Border(circlePoints);
+  border3 = new Border(straightLine);
+  // border1 = new Border(knotPoints);
+
+
+  // border1.calculateOffsetPaths();
+  // border3.calculateArea();
+  // border2.calculateArea();
 
   // border1 = new Border(50, 50, 1500, 250);
-  border2.setBorderStyle(color(0), 2, 80);
+  border1.setBorderStyle(color(1,52,169),"#000", 2, 80);
 
-  border2.setBeadStyle("triangle", 40, 10);
-  // border2.setBeadStyle("circle");
+  // border2.setBorderStyle(color(0),"#fff", 2, 80);
 
-  border1.setBeadStyle("square", 30, 10);
-  // border2.setBeadStyle("triangle");
+  border1.setBeadStyle("triangle", 40, 10);
+  strborder.setBeadStyle(random(borderTypes), 40, 20);
+  // border2.setBeadStyle(random(borderTypes), 40, 20);
 
-  console.log(knotPoints);
+  // strborder.setBorderStyle("red","#fff", 2, 60);
+
+
+  // console.log(knotPoints);
+
+  // Assuming border1 and border2 are arrays of points
+  // if (checkIntersection(border3, border2)) {
+  //   console.log("Borders intersect");
+  // } else {
+  //   console.log("Borders do not intersect");
+  // }
+
+  // clipper = await initClipper();
 
   // Listen for a key press event
   document.addEventListener("keydown", function (event) {
@@ -135,8 +193,16 @@ function draw() {
   //   border.draw();
   // }
 
+  // stringMaker.draw();
+
+  // strborder.draw();
+
+  border1.draw();
+
   // border1.draw();
-  border2.draw();
+  // border3.draw();
+
+
 
   pop();
 }
@@ -144,8 +210,6 @@ function draw() {
 class Border {
   // constructor(startX, startY, endX, endY) {
   constructor(pathPoints) {
-    // console.log("Is pathPoints an array?", Array.isArray(pathPoints));
-    // this.path = pathPoints.map((pt) => createVector(pt.x, pt.y));
     this.path = [];
 
     if (Array.isArray(pathPoints)) {
@@ -163,36 +227,41 @@ class Border {
 
     // console.log(" this.path:", this.path);
     this.borderColor = color(0);
+    this.fillColor = color("#fff");
     this.borderWeight = 5;
     this.borderWidth = 40;
     this.beadSize = this.borderWidth * 1.1;
     this.shapeSpacing = 50;
     this.shapeType = "circle";
     this.spacing = 10;
-    this.beadType = "circle";
+    this.beadType = "null";
     this.offsetPath1 = [];
     this.offsetPath2 = [];
+
+    // this.smoothedPoints = chaikinSmooth(this.path);
 
     this.beads = [];
     this.shapes = []; // Array to store shape objects
   }
 
-  setBorderStyle(c, weight, width) {
+  setBorderStyle(c,f, weight, width) {
     this.borderColor = c;
+    this.fillColor = f;
+
     this.borderWeight = weight;
     this.borderWidth = width;
   }
 
-  setBeadStyle(type) {
-    this.beadType = type;
-    // this.beadSize = size;
-    // this.spacing = spacing;
-  }
-  // setBeadStyle(type, size, spacing) {
+  // setBeadStyle(type) {
   //   this.beadType = type;
-  //   this.beadSize = size;
-  //   this.spacing = spacing;
+  //   // this.beadSize = size;
+  //   // this.spacing = spacing;
   // }
+  setBeadStyle(type, size, spacing) {
+    this.beadType = type;
+    this.beadSize = size;
+    this.spacing = spacing;
+  }
 
   // setHatchPreset(preset) {
   //   this.hatchPreset = preset;
@@ -214,14 +283,52 @@ class Border {
 
   draw() {
     // background(6);
+    // fill(this.fillColor);
     brush.stroke(2);
+    noFill();
     this.calculateBeadPositions();
     this.calculateOffsetPaths();
     this.drawBorders();
     // this.drawBordersWithCrossings();
 
-    // brush.hatch(3, 90, { rand: 0.1, continuous: false, gradient: 0.3 });
-    brush.hatch(10, 90, { rand: 0, continuous: false, gradient: 0.3 });
+    // fill("#000")
+    // beginShape();
+    // for (let pt of this.path) {
+    //   curveVertex(pt.x, pt.y);
+    // }
+    // if (this.isClosedPath()) {
+    //   endShape(CLOSE);
+    // } else {
+    //   endShape();
+    // }
+
+    // brush.beginShape();
+    // for (let pt of this.path) {
+    //   brush.vertex(pt.x, pt.y);
+    // }
+    // if (this.isClosedPath()) {
+    //   brush.endShape(CLOSE);
+    // } else {
+    //   brush.endShape();
+    // }
+
+    brush.hatch(6, 180, { rand: 0, continuous: false, gradient: 0.3 });
+    // brush.hatch(random(2, 8), 90, {
+    //   rand: 0,
+    //   continuous: false,
+    //   gradient: 0.3,
+    // });
+ 
+    // for (var i = 0; i < vertices.length; i++) {
+    //   var v = vertices[i];
+    //   var rotatedX = v.x * cos(angle) - v.y * sin(angle);
+    //   var rotatedY = v.x * sin(angle) + v.y * cos(angle);
+
+    //   this.updateBoundingRadius(rotatedX, rotatedY);
+
+    //   brush.vertex(rotatedX, rotatedY);
+    // }
+    // brush.endShape();
 
     this.drawBeads();
 
@@ -230,7 +337,7 @@ class Border {
   }
 
   drawBordersWithCrossings() {
-    noFill();
+    // noFill();
     brush.stroke(this.borderColor);
     brush.strokeWeight(this.borderWeight);
     brush.noHatch();
@@ -265,42 +372,6 @@ class Border {
     }
   }
 
-  drawSegmentWithGap(p1, p2, intersectionPoint) {
-    let gapSize = this.beadSize * 0.5; // Adjust gap size as needed
-
-    // Calculate distances
-    let totalDist = dist(p1.x, p1.y, p2.x, p2.y);
-    let distToIntersection = dist(
-      p1.x,
-      p1.y,
-      intersectionPoint.x,
-      intersectionPoint.y
-    );
-
-    // Calculate points for the gap
-    let gapStart = distToIntersection - gapSize / 2;
-    let gapEnd = distToIntersection + gapSize / 2;
-
-    // Ensure gapStart and gapEnd are within the segment
-    gapStart = constrain(gapStart, 0, totalDist);
-    gapEnd = constrain(gapEnd, 0, totalDist);
-
-    // Draw the segment with the gap
-    if (gapStart > 0) {
-      let startX = lerp(p1.x, p2.x, 0);
-      let startY = lerp(p1.y, p2.y, 0);
-      let endX = lerp(p1.x, p2.x, gapStart / totalDist);
-      let endY = lerp(p1.y, p2.y, gapStart / totalDist);
-      line(startX, startY, endX, endY);
-    }
-    if (gapEnd < totalDist) {
-      let startX = lerp(p1.x, p2.x, gapEnd / totalDist);
-      let startY = lerp(p1.y, p2.y, gapEnd / totalDist);
-      let endX = lerp(p1.x, p2.x, 1);
-      let endY = lerp(p1.y, p2.y, 1);
-      line(startX, startY, endX, endY);
-    }
-  }
 
   calculateBeadPositions() {
     // Calculate total path length and segment lengths
@@ -389,6 +460,14 @@ class Border {
   }
 
   calculateOffsetPaths() {
+
+    const inwardDistance = -this.borderWidth / 2;
+    const outwardDistance = this.borderWidth / 2;
+  
+    // this.offsetPath1 = polygonOffset(this.path, inwardDistance);
+    // this.offsetPath2 = polygonOffset(this.path, outwardDistance);
+
+
     this.offsetPath1 = [];
     this.offsetPath2 = [];
     let numPoints = this.path.length;
@@ -420,50 +499,97 @@ class Border {
       this.offsetPath1.push(p5.Vector.add(current, offset));
       this.offsetPath2.push(p5.Vector.sub(current, offset));
     }
+
+    this.offsetPath1 = chaikinSmooth(this.offsetPath1);
+    this.offsetPath2 = chaikinSmooth(this.offsetPath2);
+
+
+    console.log(this.offsetPath1);
+    console.log("outerLEN of "+ this.outerLen)
+
+    console.log(this.offsetPath2);
+
   }
+
   // calculateOffsetPaths() {
-  //   this.offsetPath1 = [];
-  //   this.offsetPath2 = [];
   //   let numPoints = this.path.length;
 
-  //   for (let i = 0; i < this.path.length - 1; i++) {
+  //   for (let i = 0; i < numPoints; i++) {
+  //     let prevIndex = (i - 1 + numPoints) % numPoints;
+  //     let nextIndex = (i + 1) % numPoints;
+
+  //     let prev = this.path[prevIndex];
   //     let current = this.path[i];
-  //     let next = this.path[i + 1];
+  //     let next = this.path[nextIndex];
 
-  //     // Tangent vector
-  //     let tangent = p5.Vector.sub(next, current).normalize();
+  //     // Compute tangent vector as the average of the incoming and outgoing directions
+  //     let dir1 = p5.Vector.sub(current, prev).normalize();
+  //     let dir2 = p5.Vector.sub(next, current).normalize();
+  //     let tangent = p5.Vector.add(dir1, dir2).normalize();
 
-  //     // Normal vector (perpendicular to tangent)
+  //     // If the path is open and at the ends, use the single direction
+  //     if (!this.isClosedPath() && (i === 0 || i === numPoints - 1)) {
+  //       tangent = i === 0 ? dir2 : dir1;
+  //     }
+
+  //     // Normal vector
   //     let normal = createVector(-tangent.y, tangent.x);
 
-  //     // Scale normal by borderWidth / 2
+  //     // Offset by half the bead size
   //     let offset = p5.Vector.mult(normal, this.borderWidth / 2);
 
-  //     // Offset current and next points
-  //     let offsetCurrent1 = p5.Vector.add(current, offset);
-  //     let offsetNext1 = p5.Vector.add(next, offset);
-  //     let offsetCurrent2 = p5.Vector.sub(current, offset);
-  //     let offsetNext2 = p5.Vector.sub(next, offset);
+  //     // Apply Chaikin smooth algorithm to current point
+  //     let q0 = createVector(
+  //       prev.x * 3/4 + current.x * 1/4,
+  //       prev.y * 3/4 + current.y * 1/4
+  //     );
+  //     let q1 = createVector(
+  //       prev.x * 1/4 + current.x * 3/4,
+  //       prev.y * 1/4 + current.y * 3/4
+  //     );
 
-  //     // Add to offset paths
-  //     this.offsetPath1.push(offsetCurrent1);
-  //     this.offsetPath2.push(offsetCurrent2);
+  //     // Update offset paths with smoothed points
+  //     this.offsetPath1.push(q0);
+  //     this.offsetPath2.push(q0);
 
-  //     // Handle the last point
-  //     if (i === this.path.length - 2) {
-  //       this.offsetPath1.push(offsetNext1);
-  //       this.offsetPath2.push(offsetNext2);
-  //     }
+  //     // Repeat for next point
+  //     let q2 = createVector(
+  //       current.x * 3/4 + next.x * 1/4,
+  //       current.y * 3/4 + next.y * 1/4
+  //     );
+  //     let q3 = createVector(
+  //       current.x * 1/4 + next.x * 3/4,
+  //       current.y * 1/4 + next.y * 3/4
+  //     );
+
+  //     this.offsetPath1.push(q2);
+  //     this.offsetPath2.push(q2);
+  //   }
+
+  //   // Add the first point again to close the shape
+  //   this.offsetPath1.push(this.offsetPath1[0]);
+  //   this.offsetPath2.push(this.offsetPath2[0]);
+
+  //   // Apply Chaikin smooth algorithm multiple times
+  //   for (let i = 0; i < ; i++) { // You can adjust this number for more smoothing
+  //     this.offsetPath1 = chaikinSmooth(this.offsetPath1);
+  //     this.offsetPath2 = chaikinSmooth(this.offsetPath2);
   //   }
   // }
 
+  
   drawBorders() {
-    noFill();
+    // noFill();
+
     brush.stroke(this.borderColor);
     brush.strokeWeight(this.borderWeight);
     brush.noHatch();
 
     // Draw first offset path
+    // fill(this.fillColor);
+    // fill("#fff");
+
+
     brush.beginShape();
     for (let pt of this.offsetPath1) {
       brush.vertex(pt.x, pt.y);
@@ -486,6 +612,28 @@ class Border {
     }
   }
 
+  calculateArea() {
+    const clipPoly = {
+      paths: [this.path],
+      type: "poly"
+    };
+
+    const result = clipperLib.polyArea(clipPoly);
+    this.outerArea = result[0];
+    this.innerArea = result[1];
+    this.totalArea = this.outerArea - this.innerArea;
+    console.log("Outer area:", this.outerArea);
+    console.log("Inner area:", this.innerArea);
+    console.log("Total area:", this.totalArea);
+  }
+
+  getPolygonVertices() {
+    return {
+      outer: this.offsetPath1,
+      inner: this.offsetPath2,
+    };
+  }
+
   drawBeads() {
     for (let bead of this.beads) {
       push();
@@ -494,13 +642,13 @@ class Border {
       rotate(bead.angle);
       switch (this.beadType) {
         case "circle":
-          console.log(this.beadSize, bead.position.x, bead.position.y);
+          // console.log(this.beadSize, bead.position.x, bead.position.y);
           drawCircle(bead.position.x, bead.position.y, this.beadSize);
           // brush.circle(bead.position.x, bead.position.y, this.beadSize);
           break;
         case "square":
           rectMode(CENTER);
-          console.log("square");
+          // console.log("square");
 
           drawSquare(
             bead.position.x,
@@ -525,51 +673,6 @@ class Border {
     }
   }
 
-  // drawShapes() {
-  //   // Draw each shape stored in the shapes array
-  //   for (let shape of this.shapes) {
-  //     // push();
-  //     console.log("Drawing shape at:", shape.x, shape.y);
-  //     // translate(shape.x, shape.y);
-  //     // rotate(shape.angle);
-  //     let angleDeg = shape.angle;
-  //     // Calculate the offset to center the shape between the two border lines
-  //     let offsetDistance = (this.borderWidth - shape.size) / 2;
-
-  //     // Compute the angle in radians
-  //     let offsetX = -offsetDistance * sin(angleDeg);
-  //     let offsetY = offsetDistance * cos(angleDeg);
-
-  //     let finalX = shape.x + offsetX;
-  //     let finalY = shape.y + offsetY;
-
-  //     switch (shape.type) {
-  //       case "triangle":
-  //         // The triangle vertices in local coordinates
-  //         drawTriangle(shape, finalX, finalY);
-  //         break;
-
-  //       case "circle":
-  //         // Draw circle at finalX, finalY
-  //         drawCircle(shape, finalX, finalY);
-  //         // brush.circle(finalX, finalY, shape.size);
-  //         break;
-
-  //       case "square":
-  //         // The square vertices in local coordinates
-  //         drawSquare(shape, finalX, finalY);
-  //         break;
-
-  //       // Add other shapes as needed
-  //       default:
-  //         break;
-  //     }
-
-  //     // brush.pop();
-  //     // pop();
-  //   }
-  // }
-
   updatePoints(startX, startY, endX, endY) {
     this.startPoint = createVector(startX, startY);
     this.endPoint = createVector(endX, endY);
@@ -584,9 +687,8 @@ class Border {
     );
   }
   isClosedPath() {
-    // Determine if the path is closed
-    return p5.Vector.dist(this.path[0], this.path[this.path.length - 1]) < 1e-6;
-    // return true;
+    return this.path[0].x === this.path[this.path.length - 1].x && 
+           this.path[0].y === this.path[this.path.length - 1].y;
   }
 
   rotate(angle) {
